@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Water Footprint Finder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        h1 {
+            text-align: center;
+        }
+        input[type="text"], select {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #0056b3;
+        }
+        .result, .details {
+            margin-top: 20px;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
+        }
+        #scanner {
+            margin-top: 20px;
+            text-align: center;
+        }
+        video {
+            width: 100%;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+    </style>
+    <script src="https://unpkg.com/quagga/dist/quagga.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>Water Footprint Finder</h1>
+        <input type="text" id="productName" placeholder="Enter product name">
+        <button onclick="getWaterFootprint()">Find Water Footprint</button>
+        <div id="result" class="result"></div>
+        <div id="details" class="details"></div>
+
+        <!-- Location Selection -->
+        <label for="location">Select your location:</label>
+        <select id="location">
+            <option value="dry">Dry Area</option>
+            <option value="wet">Wet Area</option>
+            <option value="custom">Custom Location</option>
+        </select>
+        <button onclick="getLocationFromGeolocation()">Detect Location</button>
+
+        <!-- Scanner section -->
+        <div id="scanner">
+            <h2>Scan a Barcode</h2>
+            <video id="barcode-scanner"></video>
+        </div>
+    </div>
+
+    <script>
+        // Example data with detailed information and location-specific variations
+        const exampleData = {
+            'apple': {
+                baseWaterFootprint: 500, // in liters
+                locationVariations: {
+                    'dry': 600, // water footprint in dry areas
+                    'wet': 400   // water footprint in wet areas
+                }
+            },
+            'beef': {
+                baseWaterFootprint: 15000,
+                locationVariations: {
+                    'dry': 18000,
+                    'wet': 12000
+                }
+            },
+            'rice': {
+                baseWaterFootprint: 2500,
+                locationVariations: {
+                    'dry': 3000,
+                    'wet': 2000
+                }
+            },
+            '123456789012': {
+                baseWaterFootprint: 500,
+                locationVariations: {
+                    'dry': 600,
+                    'wet': 400
+                }
+            }
+        };
+
+        // Function to get user location from geolocation
+        function getLocationFromGeolocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function(position) {
+                    const locationType = determineLocationType(position.coords.latitude, position.coords.longitude);
+                    document.getElementById('location').value = locationType;
+                    getWaterFootprint();
+                }, function(error) {
+                    console.error("Geolocation error: ", error);
+                    alert('Unable to retrieve location. Please select your location manually.');
+                });
+            } else {
+                console.log("Geolocation is not supported by this browser.");
+                alert('Geolocation is not supported. Please select your location manually.');
+            }
+        }
+
+        // Mock function to determine location type based on coordinates
+        function determineLocationType(lat, lon) {
+            // Example logic: In a real application, you would use a more accurate method
+            return lat > 20 ? 'dry' : 'wet'; // Simple latitude-based classification
+        }
+
+        function getWaterFootprint() {
+            const productName = document.getElementById('productName').value.trim().toLowerCase();
+            const locationType = document.getElementById('location').value;
+            const resultDiv = document.getElementById('result');
+            const detailsDiv = document.getElementById('details');
+            
+            const data = exampleData[productName] || null;
+            if (data) {
+                const waterFootprint = data.locationVariations[locationType] || data.baseWaterFootprint;
+                resultDiv.textContent = `Water footprint of ${productName}: ${waterFootprint} liters`;
+                detailsDiv.innerHTML = `
+                    <h3>Additional Details</h3>
+                    <p><strong>Location:</strong> ${locationType}</p>
+                `;
+            } else {
+                resultDiv.textContent = 'Data not available for this product.';
+                detailsDiv.innerHTML = '';
+            }
+        }
+
+        // Initialize QuaggaJS for barcode scanning
+        function startScanner() {
+            Quagga.init({
+                inputStream: {
+                    name: "Live",
+                    type: "LiveStream",
+                    target: document.querySelector('#barcode-scanner'),
+                },
+                decoder: {
+                    readers: ["ean_reader", "ean_8_reader", "code_128_reader"]
+                }
+            }, function(err) {
+                if (err) {
+                    console.log(err);
+                    return;
+                }
+                Quagga.start();
+            });
+
+            Quagga.onDetected(function(data) {
+                const barcode = data.codeResult.code;
+                document.getElementById('productName').value = barcode;
+                getWaterFootprint();
+                Quagga.stop(); // Stop scanning after a successful scan
+            });
+        }
+
+        // Start the scanner when the page loads
+        window.onload = function() {
+            startScanner();
+        };
+    </script>
+</body>
+</html>
